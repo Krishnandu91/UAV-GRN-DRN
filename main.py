@@ -29,9 +29,9 @@ epsilon = 0
 
 learning_rate = 0
 
-# Discount factor for the agent
+# Decay factor for exploration rate
 
-discount_factor = 0
+decay_factor = 0
 
 # Number of UAVs
 
@@ -74,7 +74,7 @@ def init():
     global t
     global epsilon
     global learning_rate
-    global discount_factor
+    global decay_factor
     global max_iter
     global number_UAV
     global radius_UAV
@@ -87,7 +87,7 @@ def init():
         t = file_data['t']
         epsilon = file_data['epsilon']
         learning_rate = file_data['learning_rate']
-        discount_factor = file_data['discount_factor']
+        decay_factor = file_data['decay_factor']
         max_iter = file_data['max_iter']
         number_UAV = file_data['number_UAV']
         radius_UAV = file_data['radius_UAV']
@@ -106,7 +106,7 @@ def q_learn(UAV_node, placed):
     global M
     global epsilon
     global learning_rate
-    global discount_factor
+    global decay_factor
     global max_iter
     Q = np.zeros((N * M, 4))
     loc = move_endpoint.movement.get_random_location(N, M)
@@ -115,15 +115,16 @@ def q_learn(UAV_node, placed):
         loc = (x, y)
         if random.uniform(0, 1) <= epsilon:
             index = move_endpoint.movement.map_2d_to_1d(loc, N)
-            Q[index, action] = reward_endpoint.rewards.reward_function(
-                UAV_node, placed, loc, UAV_location, t, power_UAV, UAV_to_UAV_threshold)
+            Q[index, action] = reward_endpoint.rewards.reward_function_paper(
+                UAV_node, placed, loc, UAV_location, t, power_UAV, UAV_to_UAV_threshold, radius_UAV, N, M)
         else:
             index = move_endpoint.movement.map_2d_to_1d(loc, N)
-            reward = reward_endpoint.rewards.reward_function(
-                UAV_node, placed, loc, UAV_location, t, power_UAV, UAV_to_UAV_threshold)
+            reward = reward_endpoint.rewards.reward_function_paper(
+                UAV_node, placed, loc, UAV_location, t, power_UAV, UAV_to_UAV_threshold, radius_UAV, N, M)
             Q[index, action] = Q[index, action] + learning_rate * \
-                (reward + discount_factor *
+                (reward + decay_factor *
                  np.max(Q[index, :]) - Q[index, action])
+            epsilon *= decay_factor
     max_reward = -1
     max_pos = -1
     for index, rows in enumerate(Q):
@@ -132,7 +133,7 @@ def q_learn(UAV_node, placed):
             max_reward = expected_max
             max_pos = index
     x, y = move_endpoint.movement.map_1d_to_2d(max_pos, N, M)
-    # print(f"Node: {UAV_node}\nMaximum reward value: {max_reward}")
+    print(f"Node: {UAV_node}\nMaximum reward value: {max_reward}")
     return (x, y)
 
 

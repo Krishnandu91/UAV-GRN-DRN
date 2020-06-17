@@ -51,15 +51,10 @@ def reward_function(UAV_node, placed, pos_i, UAV_location, t, power_UAV, UAV_to_
         dist_uav = move_endpoint.movement.get_dist_UAV(pos_i, pos_j)
         if dist_uav == 0 or dist_uav <= t:
             neg_reward += 99999999 * -999
-        # if dist_uav > t and dist_uav <= UAV_to_UAV_threshold:
-        #     if grn_endpoint.grn_info.is_edge_grn(UAV_node, j) or grn_endpoint.grn_info.is_edge_grn(j, UAV_node):
-        #         pos_reward += 99999
-        #     else:
-        #         pos_reward += 9999
     # New additions
     for j in placed:
         pos_j = UAV_location[j]
-        if grn_endpoint.grn_info.is_edge_grn(UAV_node, j) or grn_endpoint.grn_info.is_edge_grn(j, UAV_node):
+        if grn_endpoint.grn_info.is_edge_grn(grn_endpoint.grn_info.m(UAV_node), grn_endpoint.grn_info.m(j)) or grn_endpoint.grn_info.is_edge_grn(grn_endpoint.grn_info.m(j), grn_endpoint.grn_info.m(UAV_node)):
             if move_endpoint.movement.get_dist_UAV(pos_i, pos_j) < UAV_to_UAV_threshold:
                 pos_reward += 9999
             pos_reward += grn_endpoint.grn_info.get_emc(
@@ -74,15 +69,17 @@ def reward_function(UAV_node, placed, pos_i, UAV_location, t, power_UAV, UAV_to_
     return reward
 
 
-def reward_function_paper(UAV_node, placed, pos_i, UAV_location, t, power_UAV, UAV_to_UAV_threshold):
+def reward_function_paper(UAV_node, placed, pos_i, UAV_location, t, power_UAV, UAV_to_UAV_threshold, radius_UAV, N, M):
     """
     Function: reward_function\n
-    Parameters: UAV_node -> the UAV which needs to be placed, placed -> list of already placed UAVs, pos_i -> current position of the UAV_node, UAV_location -> Dictionary storing locations of UAVs, t -> threshold distance of UAV, power_UAV -> power of UAV, UAV_to_UAV_threshold -> UAV to UAV communication threshold\n
+    Parameters: UAV_node -> the UAV which needs to be placed, placed -> list of already placed UAVs, pos_i -> current position of the UAV_node, UAV_location -> Dictionary storing locations of UAVs, t -> threshold distance of UAV, power_UAV -> power of UAV, UAV_to_UAV_threshold -> UAV to UAV communication threshold, radius_UAV -> radius of the UAV, (N, M) -> size of the grid\n
     Returns: the reward for this configuration\n
     """
     pos_reward = 0
     rho_reward = 0
     neg_reward = 1
+    reward = 0
+    ground_users = users_endpoint.users.get_number_ground_users()
     # RHO function
     for j in placed:
         pos_j = UAV_location[j]
@@ -91,22 +88,24 @@ def reward_function_paper(UAV_node, placed, pos_i, UAV_location, t, power_UAV, U
             break
     # Indicator variable edge motif centrality
     for j in placed:
-        if grn_endpoint.grn_info.is_edge_grn(UAV_node, j):
+        if grn_endpoint.grn_info.is_edge_grn(grn_endpoint.grn_info.m(UAV_node), grn_endpoint.grn_info.m(j)):
             pos_reward += grn_endpoint.grn_info.get_emc(
                 grn_endpoint.grn_info.m(UAV_node), grn_endpoint.grn_info.m(j)) + 1
-    # ETA function
-    eta_num = users_endpoint.users.get_ground_cell_connections(pos_i)
-    eta_den = 1
-    for j in placed:
-        pos_j = UAV_location[j]
-        eta_den += users_endpoint.users.get_ground_cell_connections(pos_j) + 1
-    pos_reward += eta_num / eta_den
-    # Indicator variable for denominator
-    for j in placed:
-        pos_j = UAV_location[j]
+        eta_frac_sum = 0
+        for user in range(1, ground_users + 1):
+            eta_num = 0
+            eta_den = 1
+            if users_endpoint.users.is_user_connected(user, pos_i, radius_UAV, N, M):
+                eta_num = 1
+                break
+            for j in placed:
+                pos_j = UAV_location[j]
+                if users_endpoint.users.is_user_connected(user, pos_i, radius_UAV, N, M):
+                    eta_den += 1
+            eta_frac_sum += eta_num / eta_den
+        pos_reward += eta_frac_sum
         if move_endpoint.movement.get_dist_UAV(pos_i, pos_j) < t:
             neg_reward += 1
-    # Calculating reward
-    reward = pos_reward / neg_reward
+        reward += pos_reward / neg_reward
     reward *= power_UAV * rho_reward
     return reward
