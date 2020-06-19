@@ -31,39 +31,51 @@ def reward_function(UAV_node, placed, pos_i, UAV_location, t, power_UAV, UAV_to_
     ground_users = users_endpoint.users.get_number_ground_users()
     user_served_temp = set()
     connectivity = users_endpoint.users.get_ground_cell_connections(pos_i)
+    # Give a very high -ve reward
     if connectivity == 0:
-        neg_reward += 9999999
+        neg_reward += 999999999 * -99999
     user_connected_i = users_endpoint.users.get_users_cell_connections(pos_i)
     for j in placed:
         pos_j = UAV_location[j]
+        # If locations are not same give a very high +ve reward
+        if pos_j != pos_j:
+            pos_reward += 999999999 * 9999
         user_connected_j = users_endpoint.users.get_users_cell_connections(
             pos_j)
+        # Add number of users which are connected to the UAVs
         for user in user_connected_j:
             user_served_temp.add(user)
+        # If both sets are same penalise the agent else give a very high positive reward
         if is_equal(user_connected_i, user_connected_j):
-            neg_reward += 999999
+            neg_reward += 99999999 * -9999
         else:
-            pos_reward += 99999
+            pos_reward += 999999999 * 99999
+    # if less than 100% users are connected give a bit of negative reward
     if len(user_served_temp) / ground_users < 1:
         neg_reward += 999999
     for j in placed:
         pos_j = UAV_location[j]
         dist_uav = move_endpoint.movement.get_dist_UAV(pos_i, pos_j)
+        # if dist between UAVs is zero or less than t give a high -ve reward
         if dist_uav == 0 or dist_uav <= t:
             neg_reward += 99999999 * -999
     # New additions
     for j in placed:
         pos_j = UAV_location[j]
         if grn_endpoint.grn_info.is_edge_grn(grn_endpoint.grn_info.m(UAV_node), grn_endpoint.grn_info.m(j)) or grn_endpoint.grn_info.is_edge_grn(grn_endpoint.grn_info.m(j), grn_endpoint.grn_info.m(UAV_node)):
+            # If there is and edge in the grn and we can connect the UAVs give a positive reward
             if move_endpoint.movement.get_dist_UAV(pos_i, pos_j) < UAV_to_UAV_threshold:
                 pos_reward += 9999
+            # Add the edge motif centrality of the grn
             pos_reward += grn_endpoint.grn_info.get_emc(
-                grn_endpoint.grn_info.m(UAV_node), grn_endpoint.grn_info.m(j)) + 9999
+                grn_endpoint.grn_info.m(UAV_node), grn_endpoint.grn_info.m(j)) + 99999
             pos_reward += grn_endpoint.grn_info.get_emc(
-                grn_endpoint.grn_info.m(j), grn_endpoint.grn_info.m(UAV_node)) + 9999
+                grn_endpoint.grn_info.m(j), grn_endpoint.grn_info.m(UAV_node)) + 99999
         else:
+            # If no edges give a negative reward
             neg_reward += 999999
     # New Additions over
+    # Calculate the reward
     reward = pos_reward / neg_reward
     reward *= power_UAV
     return reward
@@ -71,11 +83,11 @@ def reward_function(UAV_node, placed, pos_i, UAV_location, t, power_UAV, UAV_to_
 
 def reward_function_paper(UAV_node, placed, pos_i, UAV_location, t, power_UAV, UAV_to_UAV_threshold, radius_UAV, N, M):
     """
-    Function: reward_function\n
+    Function: reward_function_paper\n
     Parameters: UAV_node -> the UAV which needs to be placed, placed -> list of already placed UAVs, pos_i -> current position of the UAV_node, UAV_location -> Dictionary storing locations of UAVs, t -> threshold distance of UAV, power_UAV -> power of UAV, UAV_to_UAV_threshold -> UAV to UAV communication threshold, radius_UAV -> radius of the UAV, (N, M) -> size of the grid\n
     Returns: the reward for this configuration\n
     """
-    pos_reward = 0
+    pos_reward = 1
     rho_reward = 0
     neg_reward = 1
     reward = 0
@@ -91,7 +103,7 @@ def reward_function_paper(UAV_node, placed, pos_i, UAV_location, t, power_UAV, U
         if grn_endpoint.grn_info.is_edge_grn(grn_endpoint.grn_info.m(UAV_node), grn_endpoint.grn_info.m(j)):
             pos_reward += grn_endpoint.grn_info.get_emc(
                 grn_endpoint.grn_info.m(UAV_node), grn_endpoint.grn_info.m(j)) + 1
-        eta_frac_sum = 0
+        eta_frac_sum = 1
         for user in range(1, ground_users + 1):
             eta_num = 0
             eta_den = 1
