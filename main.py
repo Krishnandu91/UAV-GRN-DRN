@@ -115,12 +115,12 @@ def q_learn(UAV_node, placed):
         loc = (x, y)
         if random.uniform(0, 1) <= epsilon:
             index = move_endpoint.movement.map_2d_to_1d(loc, N)
-            Q[index, action] = reward_endpoint.rewards.reward_function_paper(
-                UAV_node, placed, loc, UAV_location, t, power_UAV, UAV_to_UAV_threshold, radius_UAV, N, M)
+            Q[index, action] = reward_endpoint.rewards.reward_function(
+                UAV_node, placed, loc, UAV_location, t, power_UAV, UAV_to_UAV_threshold)
         else:
             index = move_endpoint.movement.map_2d_to_1d(loc, N)
-            reward = reward_endpoint.rewards.reward_function_paper(
-                UAV_node, placed, loc, UAV_location, t, power_UAV, UAV_to_UAV_threshold, radius_UAV, N, M)
+            reward = reward_endpoint.rewards.reward_function(
+                UAV_node, placed, loc, UAV_location, t, power_UAV, UAV_to_UAV_threshold)
             Q[index, action] = Q[index, action] + learning_rate * \
                 (reward + decay_factor *
                  np.max(Q[index, :]) - Q[index, action])
@@ -188,7 +188,7 @@ def write_output(placed):
         G.add_node(node)
     for node1 in placed:
         for node2 in placed:
-            if move_endpoint.movement.get_dist_UAV(UAV_location[node1], UAV_location[node2]) <= UAV_to_UAV_threshold:
+            if move_endpoint.movement.get_dist_UAV(UAV_location[node1], UAV_location[node2]) <= UAV_to_UAV_threshold and node1 != node2:
                 G.add_edge(node1, node2)
     nx.draw(G, with_labels=True)
     plt.savefig(graph_file_name)
