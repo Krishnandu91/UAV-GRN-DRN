@@ -83,7 +83,7 @@ def init():
     parent_dir = os.getcwd()
     folder_name = 'input_files'
     file_name = 'scenario_input.json'
-    file_path = os.path.join (parent_dir, folder_name, file_name)
+    file_path = os.path.join(parent_dir, folder_name, file_name)
     with open(file_path, 'r') as file_pointer:
         file_data = json.load(file_pointer)
         N = file_data['N']
@@ -113,20 +113,27 @@ def q_learn(UAV_node, placed):
     global learning_rate
     global decay_factor
     global max_iter
-    Q = np.zeros((N * M, 5))
+    global power_UAV
+    Q = np.zeros((N * M, 15))
     # Centroid Location
-    # loc = move_endpoint.movement.get_centroid_location(N, M, UAV_location, UAV_to_UAV_threshold)
+    # loc = move_endpoint.movement.get_centroid_location(
+    #     N, M, UAV_location, UAV_to_UAV_threshold)
     # Center Location
     # loc = move_endpoint.movement.get_center_location(N, M)
     # Random Location
     loc = move_endpoint.movement.get_random_location(N, M)
     # Vicinity Location
-    loc = move_endpoint.movement.get_vicinity_location(
-        N, M, UAV_location, UAV_to_UAV_threshold)
+    # loc = move_endpoint.movement.get_vicinity_location(
+    # N, M, UAV_location, UAV_to_UAV_threshold)
     epsilon_val = epsilon
+    # low, medium, high power
+    action_power = [0, 5, 10]
     for iterations in range(max_iter):
-        x, y, action = move_endpoint.movement.get_random_move(loc, N, M)
+        x, y, action, power_factor = move_endpoint.movement.get_random_move(
+            loc, N, M)
         loc = (x, y)
+        action += action_power[power_factor]
+        power_UAV += power_factor
         if random.uniform(0, 1) <= epsilon_val:
             index = move_endpoint.movement.map_2d_to_1d(loc, N)
             Q[index, action] = reward_endpoint.rewards.reward_function(
@@ -151,7 +158,7 @@ def q_learn(UAV_node, placed):
     return (x, y)
 
 
-def done_simulation (ground_placed, placed):
+def done_simulation(ground_placed, placed):
     ground_users = users_endpoint.users.get_number_ground_users()
     done_user_connectivity = False
     done_UAV_coverage = False
@@ -164,11 +171,10 @@ def done_simulation (ground_placed, placed):
         for node2 in placed:
             if move_endpoint.movement.get_dist_UAV(UAV_location[node1], UAV_location[node2]) <= UAV_to_UAV_threshold and node1 != node2:
                 UAV_G.add_edge(node1, node2)
-    if nx.number_connected_components (UAV_G) == 1:
+    if nx.number_connected_components(UAV_G) == 1:
         done_UAV_coverage = True
     return done_user_connectivity and done_UAV_coverage
 
-    
 
 def simulation():
     """
@@ -188,16 +194,23 @@ def simulation():
     for UAV_node in range(2, number_UAV + 1):
         unplaced.append(UAV_node)
     for UAV_node in unplaced:
-        if done_simulation (ground_placed, placed):
+        if done_simulation(ground_placed, placed):
             break
         loc = q_learn(UAV_node, placed)
-        flag = True
-        while flag:
-            for UAV, location in UAV_location.items():
-                if location == loc:
-                    loc = q_learn(UAV_node, placed)
-                else:
-                    flag = False
+        user_covered = users_endpoint.users.get_ground_cell_connections(loc)
+        for UAV, location in UAV_location.items():
+            if location == loc or user_covered == 0:
+                loc = q_learn(UAV_node, placed)
+        # Can Happen Infinite looping must look into alternatives for same location problem
+        # flag = True
+        # while flag:
+        #     user_covered = users_endpoint.users.get_ground_cell_connections(
+        #         loc)
+        #     for UAV, location in UAV_location.items():
+        #         if location == loc or user_covered == 0:
+        #             loc = q_learn(UAV_node, placed)
+        #         else:
+        #             flag = False
         UAV_location[UAV_node] = loc
         placed.append(UAV_node)
         user_list = users_endpoint.users.get_users_cell_connections(loc)
@@ -238,7 +251,6 @@ def simulation():
     # write_output(placed)
 
 
-
 def write_output(placed):
     """
     Function: write_output
@@ -246,8 +258,9 @@ def write_output(placed):
     Functionality: write the output to the respective files
     """
     parent_dir = os.path.join(os.getcwd(), 'output_files')
-    curr_dir = str(epsilon) + "_" + str(learning_rate) + "_" + str(decay_factor)
-    dir_path = os.path.join (parent_dir, curr_dir)
+    curr_dir = str(epsilon) + "_" + str(learning_rate) + \
+        "_" + str(decay_factor)
+    dir_path = os.path.join(parent_dir, curr_dir)
     try:
         os.mkdir(dir_path)
     except OSError as error:
