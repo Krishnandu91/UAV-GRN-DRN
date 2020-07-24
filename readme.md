@@ -20,6 +20,7 @@ Install the python packages by issuing the follwing commands in your terminal
 pip install networkx
 pip install matplotlib
 pip install numpy
+pip install pandas
 ```
 
 ## Cloning the repository
