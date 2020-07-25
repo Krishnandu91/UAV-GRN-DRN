@@ -10,6 +10,7 @@ You need python and following packages to run this code
 [networkx](https://networkx.github.io/)  
 [matplotlib](https://matplotlib.org/)  
 [numpy](https://numpy.org/)  
+[pandas](https://pandas.pydata.org/)  
 
 ## Installation
 
@@ -19,6 +20,7 @@ Install the python packages by issuing the follwing commands in your terminal
 pip install networkx
 pip install matplotlib
 pip install numpy
+pip install pandas
 ```
 
 ## Cloning the repository
