@@ -1,2 +1,2 @@
-cd output_files/
+cd ./output_files/
 rm -r *.*
