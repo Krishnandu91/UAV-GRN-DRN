@@ -5,28 +5,28 @@ import time
 
 # List to hold different scenario size
 
-size = [15]
+size = [5, 10, 15, 20]
 
 # List to hold number of users in each scenario
 
-users = [60]
+users = [5, 20, 45, 80]
 
 # Range of UAV to UAV communication
 
-min_communication_threshold = 6
+min_communication_threshold = 1
 max_communication_threshold = 40
 UAV_to_UAV_threshold = [str(i)+'.'+str(j)+''+str(k) for i in range(min_communication_threshold,
                                                                    max_communication_threshold) for j in range(0, 10) for k in range(0, 10)]
 
 # Maximum number of iteration
 
-max_iter = 10
+max_iter = 1
 
 
-def update_log_file(threshold, sd_user_dist):
+def update_log_file(threshold, sd_user_dist, curr_user_served, curr_UAV_used, similarity_percentage, N):
     """
     Function: update_log_file\n
-    Parameters: therhold -> threshold of the UAV to UAV communication, sd_user_dist -> standard deviation of user distances\n
+    Parameters: therhold -> threshold of the UAV to UAV communication, sd_user_dist -> standard deviation of user distances, curr_user_served -> user served with current UAVs, curr_UAV_used -> Number of UAVs used to serve users, similarity_percentage -> Similarity percentage of UAV graph, N -> Grid Size\n
     Functionality: Appends new data to the log file\n
     """
     parent_dir = os.getcwd()
@@ -34,36 +34,16 @@ def update_log_file(threshold, sd_user_dist):
     final_log_file = 'scenario_analysis.log'
     lines_to_write = []
     lines_to_write.append(
-        f'{threshold} {sd_user_dist}\n')
+        f'# Area Size: {N} X {N}\n# UAV used: {curr_UAV_used}\n# User covered: {curr_user_served}\n# Edge Similarity Percentage: {similarity_percentage}\n# Standard Deviation of user location: {sd_user_dist}\n# UAV Communication Threshold: {threshold}\n')
     with open(os.path.join(parent_dir, dir_name, final_log_file), 'a') as file_pointer:
         file_pointer.writelines(lines_to_write)
-
-
-def find_percentage(lines, num_ahead):
-    """
-    Function: find_percentage\n
-    Parameter: lines -> lines of current output file opened, num_ahead -> number of lines ahead where we get the percentage of edge similarity\n
-    Returns: edge similarity percentage in that file
-    """
-    percentage = 0.0
-    if 'Following' in lines[3 + num_ahead]:
-        if 'Following' in lines[3 + num_ahead + 2]:
-            percentage = lines[3 + num_ahead + 5].split(':')[1]
-        elif 'graph' in lines[3 + num_ahead + 2]:
-            percentage = lines[3 + num_ahead + 4].split(':')[1]
-    elif 'graph' in lines[3 + num_ahead]:
-        if 'Following' in lines[3 + num_ahead + 1]:
-            percentage = lines[3 + num_ahead + 4].split(':')[1]
-        elif 'graph' in lines[3 + num_ahead + 1]:
-            percentage = lines[3 + num_ahead + 3].split(':')[1]
-    return percentage
 
 
 def list_file_data():
     """
     Function: list_file_data\n
     Parameters: None\n
-    Return: list of data in output file\n
+    Return: list of data in analysis.log file\n
     """
     epsilon = 0.0
     learning_rate = 0.0
@@ -77,7 +57,7 @@ def list_file_data():
     curr_dir = str(epsilon) + "_" + str(learning_rate) + \
         "_" + str(decay_factor)
     dir_path = os.path.join(parent_dir, curr_dir)
-    file_name = 'Output_text0.txt'
+    file_name = 'analysis.log'
     file_path = os.path.join(dir_path, file_name)
     with open(file_path, 'r') as file_pointer:
         lines = file_pointer.readlines()
@@ -91,11 +71,10 @@ def check_if_complete():
     Returns: True if criteria is met\n
     """
     lines = list_file_data()
-    curr_user_served = int(lines[0].split(':')[1])
-    curr_UAV_used = int(lines[2].split(':')[1])
-    similarity_percentage = float(
-        find_percentage(lines, curr_UAV_used))
-    sd_user_dist = float(lines[-2].split(':')[1])
+    curr_user_served = round(float(lines[27].split(':')[1]), 2)
+    curr_UAV_used = round(float(lines[13].split(':')[1]), 2)
+    similarity_percentage = round(float(lines[20].split(':')[1]), 2)
+    sd_user_dist = round(float(lines[28].split(':')[1]), 2)
     parent_dir = os.getcwd()
     folder_name = 'input_files'
     file_name = 'scenario_input.json'
@@ -103,11 +82,11 @@ def check_if_complete():
     with open(file_path, 'r') as file_pointer:
         scenario_data = json.load(file_pointer)
     expected_similarity = scenario_data['similarity_threshold'] * 100
+    N = scenario_data['N']
     if similarity_percentage >= expected_similarity:
-        N = scenario_data['N']
         threshold = scenario_data['UAV_to_UAV_threshold']
-        return True
-    return False
+        return (True, curr_user_served, curr_UAV_used, similarity_percentage, sd_user_dist, N)
+    return (False, curr_user_served, curr_UAV_used, similarity_percentage, sd_user_dist, N)
 
 
 def update_scenario_input():
@@ -121,8 +100,12 @@ def update_scenario_input():
     folder_name = 'input_files'
     low = 0
     high = len(UAV_to_UAV_threshold) - 1
-    minm_threshold = 999999999
-    sd_user_dist = 0
+    min_threshold = 999999999
+    min_sd_user_dist = 0
+    min_curr_user_served = 0
+    min_curr_UAV_used = 0
+    min_similarity_percentage = 0
+    min_N = 0
     while low <= high:
         mid = (low + high) // 2
         threshold = float(UAV_to_UAV_threshold[mid])
@@ -133,18 +116,26 @@ def update_scenario_input():
         scenario_data['UAV_to_UAV_threshold'] = threshold
         with open(file_path, 'w') as file_pointer:
             json.dump(scenario_data, file_pointer)
-        os.system('python3 main.py')
-        if check_if_complete():
+        for iter in range(max_iter):
+            os.system('python3 user_secnario_producer.py')
+            os.system('python3 main.py')
+        os.system('python3 analysis.py')
+        is_done, curr_user_served, curr_UAV_used, similarity_percentage, sd_user_dist, N = check_if_complete()
+        if is_done:
             high = mid - 1
-            if threshold < minm_threshold:
-                minm_threshold = threshold
-                lines = list_file_data()
-                sd_user_dist = float(lines[-2].split(':')[1])
+            if threshold < min_threshold:
+                min_threshold = threshold
+                min_sd_user_dist = sd_user_dist
+                min_curr_user_served = curr_user_served
+                min_curr_UAV_used = curr_UAV_used
+                min_similarity_percentage = similarity_percentage
+                min_N = N
             os.system('bash fresh_analysis.sh')
         else:
             low = mid + 1
             os.system('bash fresh_analysis.sh')
-    update_log_file(minm_threshold, sd_user_dist)
+    update_log_file(min_threshold, min_sd_user_dist, min_curr_user_served,
+                    min_curr_UAV_used, min_similarity_percentage, min_N)
 
 
 def runner_function():
@@ -177,9 +168,8 @@ def runner_function():
         file_data['Number of User'] = users[i]
         with open(file_path, 'w') as file_pointer:
             json.dump(file_data, file_pointer)
-        for iter in range(max_iter):
-            os.system('python3 user_secnario_producer.py')
-            update_scenario_input()
+        os.system('python3 user_secnario_producer.py')
+        update_scenario_input()
     lines_to_write = []
     lines_to_write.append(
         f'###############################################################################################\n')
