@@ -14,7 +14,7 @@ users = [5, 20, 45, 80]
 # Range of UAV to UAV communication
 
 min_communication_threshold = 1
-max_communication_threshold = 40
+max_communication_threshold = 15
 UAV_to_UAV_threshold = [str(i)+'.'+str(j)+''+str(k) for i in range(min_communication_threshold,
                                                                    max_communication_threshold) for j in range(0, 10) for k in range(0, 10)]
 
@@ -165,6 +165,7 @@ def runner_function():
         with open(file_path, 'r') as file_pointer:
             file_data = json.load(file_pointer)
         file_data['N'] = size[i]
+        file_data['M'] = size[i]
         file_data['Number of User'] = users[i]
         with open(file_path, 'w') as file_pointer:
             json.dump(file_data, file_pointer)
@@ -182,6 +183,11 @@ def runner_function():
 
 
 if __name__ == "__main__":
+    dir_path = os.path.join(os.getcwd(), 'analysis_output_files')
+    try:
+        os.mkdir(dir_path)
+    except OSError as error:
+        pass
     print("Relax!! We have taken the charge:)")
     runner_function()
     os.system("python3 plot_graph.py")

@@ -68,9 +68,6 @@ def get_cell_vicinity(i, j, UAV_to_UAV_threshold, N, M):
         cell_list.append((i, right))
     for i in range(left, right + 1):
         cell_list.append((right, i))
-    # for i in range(up, down + 1):
-    #     for j in range(left, right + 1):
-    #         # cell_list.append ((i, j))
     return cell_list
 
 
@@ -199,9 +196,9 @@ def get_random_move(loc, N, M):
     return (x, y, action, power_factor)
 
 
-def get_dist_UAV(pos_1, pos_2):
+def get_euc_dist(pos_1, pos_2):
     """
-    Function: get_dist_UAV\n
+    Function: get_euc_dist\n
     Parameters: pos_1 -> position of the first UAV, pos_2 -> position of the second UAV\n
     Returns: The euclidean distance between the two positions\n
     """

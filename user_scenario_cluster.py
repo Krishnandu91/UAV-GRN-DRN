@@ -1,215 +1,139 @@
 import random
-import time
 import json
 import os
+import math
+import move_endpoint.movement
 
 
-# (N, N) -> Size of the grid
-N = 0
-# rad -> communication radius of the UAV
-rad = 0
-# number_user -> Number of users in the grid
-number_user = 0
+# Global Variable N, M for Grid Size
+
+N, M = (0, 0)
+
+# Number of users
+
+number_users = 0
+
+# Ground user UAV communication threshold
+
+radius_UAV = 0
+
+# User locations
+
+user_loc_lst = []
+
+# Cell Size 
+
+cell_size = 0
+
+# Unit Multiplier
+
+unit_mul = 0
+
+
+def write_to_file():
+    """
+    Function: write_to_file\n
+    Parameters: None\n
+    Functionality: writes the user_location to file\n
+    """
+    global number_users, user_loc_lst
+    write_data = {}
+    write_data["Number of Ground users"] = number_users
+    write_data["Position of Ground users"] = user_loc_lst
+    parent_dir = os.getcwd()
+    dir_name = "input_files"
+    file_name = "user_input.json"
+    with open(os.path.join(parent_dir, dir_name, file_name), 'w') as file_pointer:
+        json.dump(write_data, file_pointer)
+
+
+def generate_user_points():
+    """
+    Function: generate_user_points\n
+    Parameters: None\n
+    Returns: list of user location\n
+    """
+    global number_users, user_loc_lst, N, M, radius_UAV, unit_mul, cell_size
+    c_a = round(random.uniform(0, N - 1), 2)
+    c_b = round(random.uniform(0, M - 1), 2)
+    pos1 = (c_a, c_b)
+    user_loc_lst.append(f'{c_a} {c_b}')
+    number_user_in_cluster = random.randint(10, 31)
+    users_left = number_users - len(user_loc_lst)
+    if number_user_in_cluster > users_left:
+        number_user_in_cluster = users_left
+    lst_rad_mul = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5]
+    pos = random.randint(1, len(lst_rad_mul)) - 1
+    cluster_radius = radius_UAV * lst_rad_mul[pos]
+    temp_user_lst = []
+    while len(temp_user_lst) < number_user_in_cluster:
+        a = round(random.uniform(0, N - 1), 2)
+        b = round(random.uniform(0, M - 1), 2)
+        pos2 = (a, b)
+        if move_endpoint.movement.get_euc_dist(pos1, pos2) * cell_size <= cluster_radius:
+            temp_user_lst.append(f'{a} {b}')
+    return temp_user_lst
+
+
+def generate_clusters():
+    """
+    Function: generate_clusters\n
+    Parameters: None\n
+    Functionality: Generate user location\n
+    """
+    global N, M, number_users, user_loc_lst, radius_UAV
+    while len(user_loc_lst) < number_users:
+        user_loc_lst += generate_user_points()
+    write_to_file()
+
+
+def update_files():
+    """
+    Function: update_files\n
+    Parameters: None\n
+    Functionality: Writes the correspoinding data to scenario_input.json file
+    """
+    global N, M
+    scenario_data = {}
+    parent_dir = os.getcwd()
+    dir_name = 'input_files'
+    file_name = 'scenario_input.json'
+    with open(os.path.join(parent_dir, dir_name, file_name), 'r') as file_pointer:
+        scenario_data = json.load(file_pointer)
+    scenario_data['N'] = N
+    scenario_data['M'] = M
+    file_path = os.path.join(parent_dir, dir_name, file_name)
+    with open(file_path, 'w') as file_pointer:
+        json.dump(scenario_data, file_pointer)
+    generate_clusters()
 
 
 def take_input():
     """
     Function: take_input\n
-    Parameter: None\n
-    Functionality: Takes the desired input and initializes the global variables\n
-    """
-    global N
-    global rad
-    global number_user
-    N = int(input("Enter the size of the grid: "))
-    rad = int(input("Enter the Communication radius of the UAV: ")) - 1
-    number_user = int(input("Enter the number of users in the grid: "))
-
-
-def generate_divisions():
-    """
-    Function: generate_divisions\n
-    Parameter: None\n
-    Returns: a list of the points the grid needs to be divided\n
-    """
-    division_lst = []
-    num = 0
-    while num <= N:
-        division_lst.append(num)
-        num += rad
-    if division_lst[-1] < N:
-        division_lst.append(N)
-    return division_lst
-
-
-def generate_subgrids():
-    """
-    Function: generate_subgrids\n
-    Parameter: None\n
-    Returns: list of subgrid points\n
-    NOTE: Can be optimed in space and time complexity
-    """
-    i = 1
-    j = 1
-    division_lst = generate_divisions()
-    sub_grid = []
-    while (i < len(division_lst)):
-        row_lst = []
-        row_lst.append((division_lst[i], division_lst[j]))
-        j += 1
-        while (j < len(division_lst)):
-            row_lst.append((division_lst[i], division_lst[j]))
-            j += 1
-        sub_grid.append(row_lst)
-        j = 1
-        i += 1
-    return sub_grid
-
-
-def distribute_users():
-    """
-    Function: distribute_users\n
     Parameters: None\n
-    Returns: list of number of users in each subgrid
+    Functionality: reads user_location.json (for Grid size and number of users) and scenario_input.json for Radius values\n
     """
-    global number_user
-    output_user_number = number_user
-    sub_grids = generate_subgrids()
-    division_lst = generate_divisions()
-    N = len(sub_grids)
-    M = len(sub_grids[0])
-    number_grid = N * M
-    if number_user % number_grid != 0:
-        number_user += (number_grid - number_user % number_grid)
-    number_user_subgrid = number_user // number_grid
-    user_points = []
-    is_non_uniform = False
-    number_placed = 0
-    number_square = 0
-    for i in range(N):
-        sub_grid_points = []
-        for j in range(M):
-            row, col = sub_grids[i][j]
-            row %= rad
-            col %= rad
-            if row == 0:
-                row = rad
-            if col == 0:
-                col = rad
-            if row * col <= number_user_subgrid:
-                sub_grid_points.append(row * col)
-                number_placed += row * col
-                is_non_uniform = True
-            else:
-                sub_grid_points.append(0)
-                number_square += 1
-        user_points.append(sub_grid_points)
-    if is_non_uniform and number_square != 0:
-        points_remaining = number_user - number_placed
-        if points_remaining % number_square != 0:
-            points_remaining += (number_square -
-                                 points_remaining % number_square)
-        user_in_grid = points_remaining // number_square
-        for i in range(len(user_points)):
-            for j in range((len(user_points[0]))):
-                if user_points[i][j] == 0:
-                    user_points[i][j] = user_in_grid
-                    if user_in_grid > rad * rad:
-                        user_points[i][j] = rad * rad
-    else:
-        for i in range(len(user_points)):
-            for j in range((len(user_points[0]))):
-                user_points[i][j] = number_user_subgrid
-    return user_points
-
-
-def generate_random_points():
-    """
-    Function: generate_random_points\n
-    Parameter: None\n
-    Returns: list of desired points\n
-    """
-    global number_user
-    output_user_number = number_user
-    sub_grids = generate_subgrids()
-    division_lst = generate_divisions()
-    N = len(sub_grids)
-    M = len(sub_grids[0])
-    number_grid = N * M
-    if number_user % number_grid != 0:
-        number_user += (number_grid - number_user % number_grid)
-    number_user_subgrid = number_user // number_grid
-    user_points = distribute_users()
-    user_pos = []
-    for i in range(N):
-        sub_grid_user = []
-        for j in range(M):
-            print(f"Generating Points for sub-grid{i, j}")
-            time.sleep(0.2)
-            if len(user_pos) > output_user_number:
-                break
-            row, col = sub_grids[i][j]
-            row %= rad
-            col %= rad
-            if row == 0:
-                row = rad
-            if col == 0:
-                col = rad
-            while len(sub_grid_user) < user_points[i][j]:
-                x = random.randint(0, row - 1)
-                y = random.randint(0, col - 1)
-                x += division_lst[i]
-                y += division_lst[j]
-                if str(x) + " " + str(y) not in sub_grid_user:
-                    sub_grid_user.append(str(x) + " " + str(y))
-            user_pos += sub_grid_user
-            sub_grid_user = []
-    user_pos = sorted(user_pos[:output_user_number])
-    return user_pos
-
-
-def write_file():
-    """
-    Function: write_file\n
-    Parameters: None\n
-    Functionality: Write the file to the location specified\n
-    """
-    global N
-    user_pos = generate_random_points()
-    user_loc = []
-    for i in range(N):
-        loc_row = []
-        for j in range(N):
-            loc_row.append(0)
-        user_loc.append(loc_row)
-    for cell in user_pos:
-        x, y = map(int, cell.split(' '))
-        user_loc[x][y] = 1
-    for i in range(N):
-        for j in range(N):
-            if user_loc[i][j] == 1:
-                print(f"\033[1;31m{user_loc[i][j]}", end=' ')
-            else:
-                print(f"\033[1;37m{user_loc[i][j]}", end=' ')
-        print('\033[0;37m')
-    option = input("Do you want to save this configuration (y / n) : ")
-    if option.lower() == 'y':
-        write_data = {
-            "Number of Ground users": len(user_pos),
-            "Position of Ground users": user_pos
-        }
-        print(write_data)
-        parent_dir = os.getcwd()
-        file_name = str(N) + "_" + str(N) + "_" + \
-            str(len(user_pos)) + "_user.json"
-        file_path = os.path.join(parent_dir, 'input_files',
-                                 'user_input_scenarios', file_name)
-        with open(file_path, 'w') as file_pointer:
-            json.dump(write_data, file_pointer)
-    else:
-        write_file()
+    global N, M, number_users, radius_UAV, cell_size, unit_mul
+    user_input = {}
+    parent_dir = os.getcwd()
+    dir_name = 'input_files'
+    file_name = 'user_location.json'
+    with open(os.path.join(parent_dir, dir_name, file_name), 'r') as file_pointer:
+        user_input = json.load(file_pointer)
+    N = user_input['N']
+    M = user_input['M']
+    number_users = user_input['Number of User']
+    scenario_data = {}
+    file_name = 'scenario_input.json'
+    with open(os.path.join(parent_dir, dir_name, file_name), 'r') as file_pointer:
+        scenario_data = json.load(file_pointer)
+    cell_size = scenario_data['cell_size']
+    unit_mul = scenario_data['unit_multiplier']
+    radius_UAV = scenario_data['radius_UAV'] * unit_mul
+    cell_size *= unit_mul
+    update_files()
 
 
 if __name__ == "__main__":
     take_input()
-    write_file()
