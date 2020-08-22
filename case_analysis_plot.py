@@ -81,7 +81,7 @@ def determine(lst_to_iterate):
     global x_label, sim_thld_lst
     if 'coverage' in x_label.lower():
         plot('coverage_threshold', lst_to_iterate)
-    elif 'ground' in x_label.lower():
+    elif 'users' in x_label.lower():
         plot('Number of User', lst_to_iterate)
     elif 'area' in x_label.lower():
         plot('NM', lst_to_iterate)
@@ -141,6 +141,7 @@ def plot(type, lst_to_iterate):
                     json.dump(user_loc, file_pointer)
                 execute()
                 update_dictionary(similarity_threshold, (N, M))
+                os.system('bash fresh_analysis.sh')
         plot_graph(False)
     else:
         for similarity_threshold in sim_thld_lst:
@@ -229,11 +230,6 @@ def plot_graph(flag):
                 y.append(b)
             plt.scatter(x, y)
             plt.plot(x, y, label=f'{sim_thld}')
-        plt.title(
-            plot_title, fontweight="bold")
-        plt.xlabel(x_label, fontweight='bold')
-        plt.ylabel(y_label, fontweight='bold')
-        plt.legend()
     else:
         parent_dir = os.getcwd()
         dir_name = 'input_files'
@@ -255,25 +251,27 @@ def plot_graph(flag):
                 y.append(y_data)
             plt.scatter(x, y)
             plt.plot(x, y, label=f'{sim_thld}')
-        plt.title(
-            plot_title, fontweight="bold")
-        plt.xlabel(x_label, fontweight='bold')
-        plt.ylabel(y_label, fontweight='bold')
-        plt.legend()
-        plt.show()
-        # N, M = points
-        # print(N // cell_size, M // cell_size)
-
-    # parent_dir = os.getcwd()
-    # dir_name = 'analysis_output_files'
-    # file_name = f'{plot_title}'
-    # plt.savefig(os.path.join(parent_dir, dir_name, file_name))
-    # file_name = 'graph_data.json'
-    # with open(os.path.join(parent_dir, dir_name, file_name), 'w') as file_pointer:
-    #     json.dump(graph_data, file_pointer)
+    plt.title(
+        plot_title, fontweight="bold")
+    plt.xlabel(x_label, fontweight='bold')
+    plt.ylabel(y_label, fontweight='bold')
+    plt.legend()
+    parent_dir = os.getcwd()
+    dir_name = 'analysis_output_files'
+    file_name = f'{plot_title}'
+    plt.savefig(os.path.join(parent_dir, dir_name, file_name))
+    file_name = 'graph_data.json'
+    with open(os.path.join(parent_dir, dir_name, file_name), 'w') as file_pointer:
+        json.dump(graph_data, file_pointer)
 
 
 if __name__ == "__main__":
+    dir_path = os.path.join(os.getcwd(), 'analysis_output_files')
+    try:
+        os.mkdir(dir_path)
+    except OSError as error:
+        pass
+    os.system('bash fresh_analysis.sh')
     print(f'Relax!! we have taken the charge. ^_^')
     os.system('bash fresh_analysis.sh')
     take_input()
